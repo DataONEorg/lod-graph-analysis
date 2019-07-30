@@ -1,3 +1,5 @@
+## Note: this code starts with the .csv file "events.csv".  At ~230 Mb it's too big to be stored on GitHub, and so is not included in the repository.  This code file is therefore only included in the repository for reference.  Its output - events_for_import.csv, events_for_import.Rdata, and events_with_nodeID.Rdata - *are* included in the repo and should be used directly in analysis.
+
 events <- read.csv("data/events.csv", header = TRUE, stringsAsFactors = FALSE)
 
 #Remove duplicate entries
