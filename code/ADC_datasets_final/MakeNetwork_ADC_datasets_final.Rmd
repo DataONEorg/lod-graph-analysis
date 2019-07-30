@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup}
-knitr::opts_knit$set(root.dir = '~/graph_analysis')
+knitr::opts_knit$set(root.dir = '~/lod-graph-analysis')
 library(igraph)
 ```
 
