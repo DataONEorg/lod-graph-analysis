@@ -382,7 +382,7 @@ library(igraph)</code></pre>
 ##     union</code></pre>
 <div id="overview" class="section level2">
 <h2>Overview</h2>
-<p>This document presents code to build a network of datasets from a DataONE archive. It takes as input an <code>.Rdata</code> file that was prepared in a separate document “events_munging.R” See the section “Import the data file” below for details.</p>
+<p>This document presents code to build a network of datasets from 23 of the 29 total DataONE archives. It takes as input an <code>.Rdata</code> file that was prepared in a separate document <code>events_munging.R</code>. See the section “Import the data file” below for details.</p>
 <p>This script works on the .Rdata table to build a network describing the relationships among datasets in the archive, then calculates statistics of interest for that network.</p>
 <p>Building and analyzing the network involves the following steps:</p>
 <ol style="list-style-type: decimal">
@@ -399,24 +399,11 @@ library(igraph)</code></pre>
 <li>A .csv file with three node characteristics: node degree, and node modularity class for two different community detection algorithms. The modularity class is the community identifier for each dataset; all datasets with the same modularity class have been identified as belonging to the same community. The .csv file contains four columns: first is the dataset ID, second is the degree for that dataset, and the third and fourth columns are the modularity class identifiers for the two different community detection algorithms.</li>
 </ol>
 </div>
-<div id="file-structure" class="section level2">
-<h2>File structure</h2>
-<p>The code in this document assumes the following file structure:</p>
-<ol style="list-style-type: decimal">
-<li>A root directory with this R markdown file and two sub-folders:</li>
-</ol>
-<ul>
-<li>sub-folder 1: a directory called “data” containing the data .csv file(s). The code in this document assumes the name of the data .csv file is “datasets.csv”, with 2 columns: “user_id” and “pid”. See “Import the data file” below for more details.</li>
-<li>sub-folder 2: a directory called “code” with sub-directories for each network.
-<ul>
-<li>The analyst (you) creates and names each sub-directory in “code” that will hold the output files for each network you build. If you modify this document to customize it for your network, the modified code can also live in the network-specific sub-folder. I’ve used “ADC_datasets_nodes” for the folder that contains the network of datasets for the Arctic Data Center. The analyst-specified directory is called as “whole_DataONE_graph” in the code below. Go through and global replace “whole_DataONE_graph” with the name of your folder before you run the code in this document.</li>
-</ul></li>
-</ul>
-</div>
 <div id="import-the-data-file" class="section level2">
 <h2>Import the data file</h2>
 <p>This code starts with an <code>.Rdata</code> file that was built from the <code>.csv</code> file <code>events.csv</code>. At ~230 Mb <code>events.csv</code> is too big to be stored on GitHub, and so is not included in the repository. The file <code>events_munging.R</code> takes the <code>events.csv</code> file and produces 3 output files: <code>events_for_import.csv</code>, <code>events_for_import.Rdata</code>, and <code>events_with_nodeID.Rdata</code>. These are the files that should be used directly in analysis.</p>
-<p>The entire archive captured in <code>events.csv</code> is too large to build with the code in this document. So we subset the archive by node id (where “node” here is DataONE storage node) and build a network from subsets of the entire archive.</p>
+<p>The entire DataONE archive captured in <code>events.csv</code> is too large to build with the code in this document. So we subset the archive by node id (where “node” here is a specific DataONE archive) and build a network from a subset of the entire archive. In what follows, we subset the entire archive to include only the “smaller” nodes, i.e., nodes with less than 20,000 user-dataset combinations, to include data from 23 of the 29 total DataONE archives. Nodes that have been removed from the archive are listed in the code below: ARCTIC, KNB, LTER, PANGAEA, R2R, and TERN. We have already built a network for the Arctic Data Center in seperate code. We could build a network for R2R and TERN, but networks for KNB, LTER, and PANGAEA are too large for the code in this document to handle. Networks for those archives (and the entire DataONE archive combined) will have to wait until we can implement distributed computing.</p>
+<p>The code that follows builds a network from the data in the 23 smaller archive nodes.</p>
 <pre class="r"><code>load(&quot;code/whole_DataONE_graph/events_with_nodeID.Rdata&quot;)
 (node_freq &lt;- as.data.frame(with(events, table(node_id))))</code></pre>
 <pre><code>##          node_id   Freq
@@ -474,6 +461,14 @@ library(igraph)</code></pre>
 ## 26          SEAD     3
 ## 28          TFRI  2381
 ## 29           UIC   998</code></pre>
+<pre class="r"><code>(larger_nodes &lt;- node_freq[which(node_freq$Freq &gt;= 20000),])</code></pre>
+<pre><code>##    node_id   Freq
+## 1   ARCTIC  97224
+## 13     KNB 258245
+## 14    LTER 666934
+## 22 PANGAEA 136296
+## 24     R2R  31495
+## 27    TERN  29119</code></pre>
 <pre class="r"><code>save(smaller_nodes, file = &quot;code/whole_DataONE_graph/smaller_nodes.Rdata&quot;)
 sum(smaller_nodes$Freq)</code></pre>
 <pre><code>## [1] 76002</code></pre>
@@ -491,7 +486,7 @@ head(datasets)</code></pre>
 ## 1634 230098    1050
 ## 1635 230098    1050
 ## 1636 228942    1050</code></pre>
-<pre class="r"><code>rm(events, node_freq, smaller_nodes)</code></pre>
+<pre class="r"><code>rm(events, node_freq, smaller_nodes, larger_nodes)</code></pre>
 <p>Check to see if the table contains duplicate entries. Duplicate entries will create multiple links, otherwise known as parallel edges, between two datasets. We are generally only interested in the fact that two datasets are connected, not in how many times they’re connected or by how many people. Removing duplicate entries will speed up the process of creating the network. Do not remove duplicate entries if you want to keep information about how many times (by how many people) two datasets are connected. Parallel edges can be turned into an edge weight value once the network is constructed, in chunk “make the network” below.</p>
 <pre class="r"><code>if(sum(duplicated(datasets)) != 0){ 
   warning(&quot;Warning: Data table includes duplicate entries. \nNumber of duplicate entries: &quot;,
@@ -537,7 +532,7 @@ summary(freq_table$freq)</code></pre>
 ##   1.000   1.000   2.000   8.979   3.000 891.000</code></pre>
 <p>We’re going to keep track of several statistics at this point, so we can compare them as the network changes over time. Specifically, we’re going to store:</p>
 <ol style="list-style-type: decimal">
-<li>num_rows_csv: The number of rows in the original .csv file, not counting the header row</li>
+<li>num_rows_csv: Because this network is built from a subset of the data, this network stat is not relevant to this analysis.</li>
 <li>num_users: The total number of unique users in the archive</li>
 <li>one_dataset_users: The number of users in the archive who only interacted with one dataset</li>
 <li>mult_dataset_users: The number of users who interacted with more than one dataset</li>
@@ -582,10 +577,8 @@ str(datasets_trim)</code></pre>
 ## 1636 228942    1050
 ## 3285 160087   34789
 ## 6665 159788   34789</code></pre>
-<p>Calculate the final size of the edge list. If the final edge list will be larger than 1 million rows, the code in this document cannot handle it. <strong>Do not try and build an edge list from the code in this document if your final edge list will be larger than 1 million rows.</strong> If the size of the edge list is less than 1 million rows, we can use the number of edges calculated here to check the final edge list once it has been created in chunk “make the edge list” below.</p>
+<p>Calculate the final size of the edge list. Normally it would be unwise to try and build a network with an edge list larger than 1 million rows, but the code for this network happens to run, so we’re going to go with it.</p>
 <pre class="r"><code>calc_num_edges &lt;- sum(choose(data_keeps$freq, 2))  #The number of rows in the final edge list
-#if(calc_num_edges &gt; 1e6){
-#  stop(&quot;The final edge list will contain over 1 million rows. \nThe size of the edge list will be &quot;, expr = calc_num_edges, &quot; rows.&quot;)}
 cat(&quot;The size of the final edge list will be&quot;, calc_num_edges, &quot;rows.&quot;)</code></pre>
 <pre><code>## The size of the final edge list will be 2963706 rows.</code></pre>
 </div>
@@ -650,14 +643,7 @@ save(edge_list, file = &quot;code/whole_DataONE_graph/edge_list.Rdata&quot;)</co
 <p>Now that we have an edge list, we can create the network in iGraph and save it as a graph object for later loading. We deal with parallel edges here as well: the edge list may contain parallel edges if multiple users interacted with the same two datasets, and/or if we decided in chunk “duplicate entries” above to keep duplicate entries in the original table. We can either, 1) remove parallel edges using the <code>simplify</code> function without an <code>edge.attr.comb</code> option - this will remove all parallel edges and set all edge weights to 1, or 2) we can collapse parallel edges to a single edge with weight equal to the total number of parallel edges, using the <code>edge.attr.comb</code> option specifying that the weight of the edge should be the sum of the parallel edges.</p>
 <pre class="r"><code>edge_list &lt;- edge_list[,c(&quot;pid1&quot;, &quot;pid2&quot;)]
 datasets_graph &lt;- graph.data.frame(edge_list, directed = FALSE)
-
-# remove parallel edges completely
 datasets_graph &lt;- simplify(datasets_graph) 
-
-# or collapse parallel edges to a single edge with weight equal to the total number of parallel edges
-# E(datasets_graph)$weight &lt;- 1
-# simplify(datasets_graph, edge.attr.comb=list(weight=&quot;sum&quot;))
-
 save(datasets_graph, file = &quot;code/whole_DataONE_graph/datasets_graph.Rdata&quot;)</code></pre>
 </div>
 <div id="calculate-and-store-network-statistics" class="section level2">
@@ -790,8 +776,8 @@ write.csv(stats_df,
 </div>
 <div id="calculate-and-store-node-level-statistics" class="section level2">
 <h2>Calculate and store node-level statistics</h2>
-<p>We calculate two node-level statistics of interest: 1) degree centrality, which is just the degree of the node, and 2) modularity class, which is the community the node has been assigned to by a community detection algorithm. We run two community detection algorithms: 1) leading eigenvector clustering (see “eigen_clust” in the code chunk above), and 2) walktrap clustering. (Note: Walktrap clustering works on a random walk algorithm and can be resource-intensive for very large networks.) Leading eigenvector clustering tends to find fewer communities of larger size than walktrap clustering.</p>
-<p>We calculate these node-level statistics and save them in a single .csv file.</p>
+<p>Calculate two node-level statistics of interest: 1) degree centrality, which is just the degree of the node, and 2) modularity class, which is the community the node has been assigned to by a community detection algorithm. We run two community detection algorithms: 1) leading eigenvector clustering (see “eigen_clust” in the code chunk above), and 2) walktrap clustering. (Note: Walktrap clustering works on a random walk algorithm and can be resource-intensive for very large networks.) Leading eigenvector clustering tends to find fewer communities of larger size than walktrap clustering.</p>
+<p>We also include in the attributes list the “node_id” attribute, which names the DataONE archive node that hosts the dataset. We calculate the node-level statistics, append the node_id, and save to a single .csv file.</p>
 <pre class="r"><code>degree_df &lt;- as.data.frame(degree(datasets_graph))
 degree_df$pid &lt;- rownames(degree_df)
 rownames(degree_df) &lt;- c()
