@@ -1,0 +1,227 @@
+---
+title: "Build and Analyze Network of ADC People"
+author: "Audrey McCombs"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_knit$set(root.dir = '~/graph_analysis')
+library(igraph)
+```
+
+## Overview
+
+This document is a companion to the MakeNetworks document, except instead of making a network with datasets as nodes and people as links, it makes a network with people as nodes and datasets as links.  This network allows for an analysis of how people interact with each other through the creation of and contribution to datasets in the archive.
+
+I've provided minimal notes and text for this file.  For a complete description of the code, please reference the main MakeNetworks document.
+
+## Import the data file
+
+```{r Import .csv file}
+datasets <- read.csv("data/datasets_ADC_final.csv", stringsAsFactors = FALSE)
+
+num_rows_csv <- length(count.fields("data/datasets_ADC_final.csv", skip = 1))
+stopifnot(num_rows_csv == nrow(datasets))
+head(datasets)
+```
+
+Check to see if the table contains duplicate antries.
+
+```{r duplicate entries}
+if(sum(duplicated(datasets)) != 0){ 
+  warning("Warning: Data table includes duplicate entries. \nNumber of duplicate entries: ",
+          expr = sum(duplicated(datasets)))}
+datasets <- datasets[!duplicated(datasets),]  #comment this line out to keep parallel edges
+str(datasets)
+```
+
+## Create a frequency table and calculate some statistics
+
+
+```{r Frequency table}
+freq_table <- as.data.frame(table(datasets$pid))
+names(freq_table) <- c("pid", "freq")
+head(freq_table, 20)
+stopifnot(sum(freq_table$freq) == nrow(datasets))
+summary(freq_table$freq)
+```
+
+First set of statistics:
+
+1. num_rows_csv: The number of rows in the original .csv file, not counting the header row
+2. num_users: The total number of unique datasets in the archive
+3. one_dataset_users: The number of datasets in the archive with only one creator
+4. mult_dataset_users: The number of datasets  with more than one creator
+5. interaction_events: The number of user interaction events.  The "freq" column in the frequency table counts the number of creators for each dataset.  Sum them up and you get the number of times people created datasets.
+
+```{r first stats}
+stats_df <- data.frame(stat = NA, value = NA)
+
+stats_df[1,] <- c("num_rows_csv", num_rows_csv); rm(num_rows_csv)
+stats_df[2,] <- c("num_datasets", nrow(freq_table))
+stats_df[3,] <- c("one_user_datasets", sum(freq_table$freq == 1))
+stats_df[4,] <- c("mult_user_datasets", sum(freq_table$freq != 1))
+stats_df[5,] <- c("interaction_events", sum(freq_table$freq[which(freq_table$freq != 1)]))
+stats_df
+```
+
+## Subset the data so it only includes datasets with more than one contributor
+
+```{r trim table of datasets}
+data_keeps <- freq_table[which(freq_table$freq != 1),]
+summary(data_keeps$freq)
+stopifnot(summary(data_keeps$freq)[1] > 1)  #min should now be greater than 1
+
+datasets_trim <- datasets[which(datasets$pid %in% data_keeps$pid),]
+stopifnot(sum(data_keeps$freq) == nrow(datasets_trim))
+stopifnot(length(unique(datasets_trim$pid)) == nrow(data_keeps))
+str(datasets_trim)
+head(datasets_trim)
+```
+
+Calculate the final size of the edge list.  If the final edge list will be larger than 1 million rows, the code in this document cannot handle it.  **Do not try and build an edge list from the code in this document if your final edge list will be larger than 1 million rows.**  If the size of the edge list is less than 1 million rows, we can use the number of edges calculated here to check the final edge list once it has been created in chunk "make the edge list" below. 
+
+```{r check final size of edge list}
+calc_num_edges <- sum(choose(data_keeps$freq, 2))  #The number of rows in the final edge list
+if(calc_num_edges > 1e6){
+  stop("The final edge list will contain over 1 million rows. \nThe size of the edge list will be ", expr = calc_num_edges, " rows.")}
+cat("The size of the final edge list will be", calc_num_edges, "rows.")
+```
+
+## Make the edge list
+
+Identify the unique datasets in the data.
+
+```{r unique contributors}
+data_unique <- unique(datasets_trim$pid); head(data_unique,20) # vector of unique datasets
+```
+
+Make the edge list.
+
+```{r make the edge list}
+edge_lists <- lapply(1:length(data_unique), function(i) {
+  
+  dataset_df <- subset(datasets_trim, pid == data_unique[i])
+  n_row <- nrow(dataset_df)
+  
+  set_creator1 <- lapply(1:(n_row-1), function(j) {
+    set_creator2 <- lapply((j+1):n_row, function(k) {
+      c(data_unique[i], dataset_df$user_id[j], dataset_df$user_id[k]) #set_creator2[[k]]
+    })
+    
+    do.call(rbind, set_creator2) #set_creator1[[j]]
+  })
+  
+  do.call(rbind, set_creator1) #edge_lists[[i]]
+})
+
+edge_list <- do.call(rbind, edge_lists)
+edge_list <- as.data.frame(edge_list, stringsAsFactors = FALSE)
+names(edge_list) <- c("pid", "creator1", "creator2")
+rm(data_unique, edge_lists)
+```
+
+Save the edge list.
+
+```{r look at the edge list}
+head(edge_list, 20)
+
+stopifnot(nrow(edge_list) == calc_num_edges)  #check that the number of rows in the edge list is what they were calculated up in chunk "trim table of datasets" 
+
+save(edge_list, file = "code/ADC_people_final/edge_list.Rdata")
+```
+
+## Make the network
+
+```{r make the network}
+edge_list <- edge_list[,c("creator1", "creator2")]
+datasets_graph <- graph.data.frame(edge_list, directed = FALSE)
+
+# remove parallel edges completely
+datasets_graph <- simplify(datasets_graph) 
+
+# or collapse parallel edges to a single edge with weight equal to the total number of parallel edges
+# E(datasets_graph)$weight <- 1
+# simplify(datasets_graph, edge.attr.comb=list(weight="sum"))
+
+save(datasets_graph, file = "code/ADC_people_final/contributors_graph.Rdata")
+```
+
+## Calculate and store network statistics
+
+Calculate and save the following whole-network stats:
+
+1. Number of nodes
+2. Number of links
+3. Median number of links over all datasets in the network.
+4. Mean number of links over all datasets in the network.
+5. Maximum number of links over all datasets in the network.
+6. Number of nodes with degree 1: The number of people who have only contributed to one dataset.
+7. Network density: How close the network is to complete.  This is the ratio of realized edges to the number of possible edges; a complete network has all possible edges
+8. Average shortest path length: The shortest path between any two nodes is the path between those two nodes that passes through the fewest other nodes.  The length of the shortest path is the number of nodes the path passes through.
+9. Network diameter: The longest shortest path on the network
+10. Number of connected components: The number of components in the network that are isolated from other components.
+11. Overall modularity: Modules in a network are groups of links that are more connected among themselves than they are with the rest of the network.  Modules are "communities" of nodes in the network.  The overall modularity score for a network measures how "clique-y" the network is, as opposed to more evenly connected throughout.
+
+```{r calculate and store network stats}
+stats_df[6,] <- c("num_nodes", vcount(datasets_graph))
+stats_df[7,] <- c("num_edges", ecount(datasets_graph))
+stats_df[8,] <- c("med_degree", as.numeric(summary(degree(datasets_graph))[3]))
+stats_df[9,] <- c("mean_degree", as.numeric(round(summary(degree(datasets_graph))[4],2)))
+stats_df[10,] <- c("max_degree", as.numeric(summary(degree(datasets_graph))[6]))
+stats_df[11,] <- c("num_degree_one", sum(degree(datasets_graph) == 1))
+stats_df[12,] <- c("net_density", round(edge_density(datasets_graph), 4)) 
+stats_df[13,] <- c("avg_short_path", round(mean_distance(datasets_graph, directed = FALSE),2))
+stats_df[14,] <- c("net_diameter", diameter(datasets_graph, directed = FALSE))
+stats_df[15,] <- c("net_components", components(datasets_graph)$no)
+
+eigen_clus <- cluster_leading_eigen(datasets_graph)
+stats_df[16,] <- c("net_modularity", round(modularity(datasets_graph, membership = membership(eigen_clus)),4))
+
+stopifnot(summary(degree(datasets_graph))[[1]] == 1)  #min should be 1
+knitr::kable(stats_df, row.names = TRUE, col.names = c("Statistic", "Value"), label = "Network statistics")
+
+save(stats_df,
+     file = "code/ADC_people_final/network_statistics.Rdata")
+write.csv(stats_df,
+     file = "code/ADC_people_final/network_statistics.csv", row.names = FALSE)
+```
+
+## Create and store community information
+
+```{r node attributes}
+degree_df <- as.data.frame(degree(datasets_graph))
+degree_df$creator_id <- rownames(degree_df)
+rownames(degree_df) <- c()
+
+length(eigen_clus) #The number of clusters
+eigen_mem <- as.numeric(membership(eigen_clus))
+eigen_names <- names(membership(eigen_clus))
+eigen_df <- data.frame(creator_id = eigen_names, eigen_clust = eigen_mem)
+rm(eigen_mem, eigen_names)
+
+walktrap_clus <- cluster_walktrap(datasets_graph)
+length(walktrap_clus) #The number of clusters
+walk_mem <- as.numeric(membership(walktrap_clus))
+walk_names <- names(membership(walktrap_clus))
+walktrap_df <- data.frame(creator_id = walk_names, walk_clust = walk_mem)
+rm(walk_mem, walk_names)
+
+attribute_df <- merge(degree_df, eigen_df)
+attribute_df <- merge(attribute_df, walktrap_df)
+names(attribute_df)[2] <- "degree"
+head(attribute_df, 20)
+
+save(attribute_df, file = "code/ADC_people_final/dataset_attributes.Rdata")
+write.csv(attribute_df, file = "code/ADC_people_final/dataset_attributes.csv", row.names = FALSE)
+
+rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)
+
+```
+
+## Session info
+
+```{r session info}
+devtools::session_info()
+```
