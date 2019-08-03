@@ -136,16 +136,24 @@ save(edge_list, file = "code/ADC_people_final/edge_list.Rdata")
 
 ```{r make the network}
 edge_list <- edge_list[,c("creator1", "creator2")]
-datasets_graph <- graph.data.frame(edge_list, directed = FALSE)
+people_graph <- graph.data.frame(edge_list, directed = FALSE)
 
 # remove parallel edges completely
-datasets_graph <- simplify(datasets_graph) 
+people_graph <- simplify(people_graph) 
 
 # or collapse parallel edges to a single edge with weight equal to the total number of parallel edges
-# E(datasets_graph)$weight <- 1
-# simplify(datasets_graph, edge.attr.comb=list(weight="sum"))
+# E(people_graph)$weight <- 1
+# simplify(people_graph, edge.attr.comb=list(weight="sum"))
 
-save(datasets_graph, file = "code/ADC_people_final/contributors_graph.Rdata")
+save(people_graph, file = "code/ADC_people_final/contributors_graph.Rdata")
+```
+
+## Make edge list for visualization in Gephi
+
+Make an edge list for importing into Gephi network visualization software.  Gephi requires the 2 columns in the .csv file to be called "Source" and "Target".
+
+```{r gephi edge list}
+write.table(get.edgelist(people_graph), file = "code/ADC_people_final/gephi_edge_list.csv", row.names = FALSE, col.names = c("Source", "Target"), sep=",")
 ```
 
 ## Calculate and store network statistics
@@ -165,21 +173,21 @@ Calculate and save the following whole-network stats:
 11. Overall modularity: Modules in a network are groups of links that are more connected among themselves than they are with the rest of the network.  Modules are "communities" of nodes in the network.  The overall modularity score for a network measures how "clique-y" the network is, as opposed to more evenly connected throughout.
 
 ```{r calculate and store network stats}
-stats_df[6,] <- c("num_nodes", vcount(datasets_graph))
-stats_df[7,] <- c("num_edges", ecount(datasets_graph))
-stats_df[8,] <- c("med_degree", as.numeric(summary(degree(datasets_graph))[3]))
-stats_df[9,] <- c("mean_degree", as.numeric(round(summary(degree(datasets_graph))[4],2)))
-stats_df[10,] <- c("max_degree", as.numeric(summary(degree(datasets_graph))[6]))
-stats_df[11,] <- c("num_degree_one", sum(degree(datasets_graph) == 1))
-stats_df[12,] <- c("net_density", round(edge_density(datasets_graph), 4)) 
-stats_df[13,] <- c("avg_short_path", round(mean_distance(datasets_graph, directed = FALSE),2))
-stats_df[14,] <- c("net_diameter", diameter(datasets_graph, directed = FALSE))
-stats_df[15,] <- c("net_components", components(datasets_graph)$no)
+stats_df[6,] <- c("num_nodes", vcount(people_graph))
+stats_df[7,] <- c("num_edges", ecount(people_graph))
+stats_df[8,] <- c("med_degree", as.numeric(summary(degree(people_graph))[3]))
+stats_df[9,] <- c("mean_degree", as.numeric(round(summary(degree(people_graph))[4],2)))
+stats_df[10,] <- c("max_degree", as.numeric(summary(degree(people_graph))[6]))
+stats_df[11,] <- c("num_degree_one", sum(degree(people_graph) == 1))
+stats_df[12,] <- c("net_density", round(edge_density(people_graph), 4)) 
+stats_df[13,] <- c("avg_short_path", round(mean_distance(people_graph, directed = FALSE),2))
+stats_df[14,] <- c("net_diameter", diameter(people_graph, directed = FALSE))
+stats_df[15,] <- c("net_components", components(people_graph)$no)
 
-eigen_clus <- cluster_leading_eigen(datasets_graph)
-stats_df[16,] <- c("net_modularity", round(modularity(datasets_graph, membership = membership(eigen_clus)),4))
+eigen_clus <- cluster_leading_eigen(people_graph)
+stats_df[16,] <- c("net_modularity", round(modularity(people_graph, membership = membership(eigen_clus)),4))
 
-stopifnot(summary(degree(datasets_graph))[[1]] == 1)  #min should be 1
+stopifnot(summary(degree(people_graph))[[1]] == 1)  #min should be 1
 knitr::kable(stats_df, row.names = TRUE, col.names = c("Statistic", "Value"), label = "Network statistics")
 
 save(stats_df,
@@ -191,7 +199,7 @@ write.csv(stats_df,
 ## Create and store community information
 
 ```{r node attributes}
-degree_df <- as.data.frame(degree(datasets_graph))
+degree_df <- as.data.frame(degree(people_graph))
 degree_df$creator_id <- rownames(degree_df)
 rownames(degree_df) <- c()
 
@@ -201,7 +209,7 @@ eigen_names <- names(membership(eigen_clus))
 eigen_df <- data.frame(creator_id = eigen_names, eigen_clust = eigen_mem)
 rm(eigen_mem, eigen_names)
 
-walktrap_clus <- cluster_walktrap(datasets_graph)
+walktrap_clus <- cluster_walktrap(people_graph)
 length(walktrap_clus) #The number of clusters
 walk_mem <- as.numeric(membership(walktrap_clus))
 walk_names <- names(membership(walktrap_clus))
@@ -213,11 +221,27 @@ attribute_df <- merge(attribute_df, walktrap_df)
 names(attribute_df)[2] <- "degree"
 head(attribute_df, 20)
 
-save(attribute_df, file = "code/ADC_people_final/dataset_attributes.Rdata")
-write.csv(attribute_df, file = "code/ADC_people_final/dataset_attributes.csv", row.names = FALSE)
+save(attribute_df, file = "code/ADC_people_final/people_attributes.Rdata")
+write.csv(attribute_df, file = "code/ADC_people_final/people_attributes.csv", row.names = FALSE)
 
 rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)
 
+```
+
+## Add person info for contributors to attributes list for Gephi
+
+```{r contributor attributes}
+attribs <- read.csv("data/creators.csv", header = TRUE, stringsAsFactors = FALSE)
+attribs <- attribs[,c("id", "last", "orcid")]
+attribs <- unique(attribs)
+names(attribs) <- c("creator_id", "LastName", "ORCID")
+attribs$ORCID[is.na(attribs$ORCID)] <- ""
+attribute_df_gephi <- merge(attribute_df, attribs)
+names(attribute_df_gephi)[1] <- "ID"
+
+write.csv(attribute_df_gephi,
+          file = "code/ADC_people_final/gephi_people_attributes.csv", row.names = FALSE)
+rm(attribs)
 ```
 
 ## Session info
