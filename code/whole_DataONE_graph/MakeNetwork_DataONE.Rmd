@@ -177,6 +177,14 @@ datasets_graph <- simplify(datasets_graph)
 save(datasets_graph, file = "code/whole_DataONE_graph/datasets_graph.Rdata")
 ```
 
+## Make edge list for visualization in Gephi
+
+Make an edge list for importing into Gephi network visualization software.  Gephi requires the 2 columns in the .csv file to be called "Source" and "Target".
+
+```{r gephi edge list}
+write.table(get.edgelist(datasets_graph), file = "code/whole_DataONE_graph/gephi_edge_list.csv", row.names = FALSE, col.names = c("Source", "Target"), sep=",")
+```
+
 ## Calculate and store network statistics
 
 There are two types of network statistics we will calculate and store: whole-network statistics and node-level stats.  We calculate and save the following whole-network stats:
@@ -243,19 +251,27 @@ rm(walk_mem, walk_names)
 
 attribute_df <- merge(degree_df, eigen_df)
 attribute_df <- merge(attribute_df, walktrap_df)
-
-unique_pids <- datasets_w_nodeID[, c("pid", "node_id")]
-unique_pids <- unique_pids[-which(duplicated(unique_pids$pid)),]
-unique_pids <- unique_pids[unique_pids$pid %in% attribute_df$pid,]
-attribute_df <- merge(attribute_df, unique_pids)
-
 names(attribute_df)[2] <- "degree"
 head(attribute_df, 20)
 
 save(attribute_df, file = "code/whole_DataONE_graph/dataset_attributes.Rdata")
 write.csv(attribute_df, file = "code/whole_DataONE_graph/dataset_attributes.csv", row.names = FALSE)
 
-rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df, unique_pids)
+rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)
+```
+
+## Add archive ID to attributes list
+
+```{R add node ID to attributes list}
+unique_pids <- datasets_w_nodeID[, c("pid", "node_id")]
+unique_pids <- unique_pids[-which(duplicated(unique_pids$pid)),]
+unique_pids <- unique_pids[unique_pids$pid %in% attribute_df$pid,]
+attribute_df <- merge(attribute_df, unique_pids)
+names(attribute_df)[1] <- "ID"
+
+write.csv(attribute_df, file = "code/whole_DataONE_graph/dataset_attributes_w_archiveID.csv", row.names = FALSE)
+
+rm(unique_pids)
 
 ```
 
