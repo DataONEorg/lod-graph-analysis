@@ -181,6 +181,14 @@ datasets_graph <- simplify(datasets_graph)
 save(datasets_graph, file = "code/ADC_datasets_final/datasets_graph.Rdata")
 ```
 
+## Make edge list for visualization in Gephi
+
+Make an edge list for importing into Gephi network visualization software.  Gephi requires the 2 columns in the .csv file to be called "Source" and "Target".
+
+```{r gephi edge list}
+write.table(get.edgelist(datasets_graph), file = "code/ADC_datasets_final/gephi_edge_list.csv", row.names = FALSE, col.names = c("Source", "Target"), sep=",")
+```
+
 ## Calculate and store network statistics
 
 There are two types of network statistics we will calculate and store: whole-network statistics and node-level stats.  We calculate and save the following whole-network stats:
@@ -253,7 +261,19 @@ save(attribute_df, file = "code/ADC_datasets_final/dataset_attributes.Rdata")
 write.csv(attribute_df, file = "code/ADC_datasets_final/dataset_attributes.csv", row.names = FALSE)
 
 rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)
+```
 
+## Add URLs for datasets to attributes list for Gephi
+
+```{r URLs}
+attribs <- read.csv("data/datasets-fixedpids_and_urls.csv", header = TRUE, stringsAsFactors = FALSE)
+attribs <- attribs[,-2]
+attribs <- unique(attribs)
+attribute_df_gephi <- merge(attribute_df, attribs)
+names(attribute_df_gephi)[1] <- "ID"
+write.csv(attribute_df_gephi,
+          file = "code/ADC_datasets_final/gephi_dataset_attributes.csv", row.names = FALSE)
+rm(attribs)
 ```
 
 ## Session info
