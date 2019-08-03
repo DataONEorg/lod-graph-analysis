@@ -229,8 +229,6 @@ write.csv(stats_df,
 
 Calculate two node-level statistics of interest: 1) degree centrality, which is just the degree of the node, and 2) modularity class, which is the community the node has been assigned to by a community detection algorithm.  We run two community detection algorithms: 1) leading eigenvector clustering (see "eigen_clust" in the code chunk above), and 2) walktrap clustering.  (Note: Walktrap clustering works on a random walk algorithm and can be resource-intensive for very large networks.)  Leading eigenvector clustering tends to find fewer communities of larger size than walktrap clustering.
 
-We also include in the attributes list the "node_id" attribute, which names the DataONE archive node that hosts the dataset.  We calculate the node-level statistics, append the node_id, and save to a single .csv file. 
-
 ```{r node attributes}
 degree_df <- as.data.frame(degree(datasets_graph))
 degree_df$pid <- rownames(degree_df)
@@ -262,6 +260,8 @@ rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)
 
 ## Add archive ID to attributes list
 
+We also include in the attributes list the "node_id" attribute, which names the DataONE archive node that hosts the dataset.  We calculate the node-level statistics, append the node_id, and save to a single .csv file. 
+
 ```{R add node ID to attributes list}
 unique_pids <- datasets_w_nodeID[, c("pid", "node_id")]
 unique_pids <- unique_pids[-which(duplicated(unique_pids$pid)),]
@@ -272,7 +272,6 @@ names(attribute_df)[1] <- "ID"
 write.csv(attribute_df, file = "code/whole_DataONE_graph/dataset_attributes_w_archiveID.csv", row.names = FALSE)
 
 rm(unique_pids)
-
 ```
 
 ## Session info

@@ -365,7 +365,7 @@ summary {
 
 <h1 class="title toc-ignore">Build and Analyze Network of Archive Datasets</h1>
 <h4 class="author">Audrey McCombs</h4>
-<h4 class="date">30 July, 2019</h4>
+<h4 class="date">03 August, 2019</h4>
 
 </div>
 
@@ -646,6 +646,11 @@ datasets_graph &lt;- graph.data.frame(edge_list, directed = FALSE)
 datasets_graph &lt;- simplify(datasets_graph) 
 save(datasets_graph, file = &quot;code/whole_DataONE_graph/datasets_graph.Rdata&quot;)</code></pre>
 </div>
+<div id="make-edge-list-for-visualization-in-gephi" class="section level2">
+<h2>Make edge list for visualization in Gephi</h2>
+<p>Make an edge list for importing into Gephi network visualization software. Gephi requires the 2 columns in the .csv file to be called “Source” and “Target”.</p>
+<pre class="r"><code>write.table(get.edgelist(datasets_graph), file = &quot;code/whole_DataONE_graph/gephi_edge_list.csv&quot;, row.names = FALSE, col.names = c(&quot;Source&quot;, &quot;Target&quot;), sep=&quot;,&quot;)</code></pre>
+</div>
 <div id="calculate-and-store-network-statistics" class="section level2">
 <h2>Calculate and store network statistics</h2>
 <p>There are two types of network statistics we will calculate and store: whole-network statistics and node-level stats. We calculate and save the following whole-network stats:</p>
@@ -799,39 +804,45 @@ rm(walk_mem, walk_names)
 
 attribute_df &lt;- merge(degree_df, eigen_df)
 attribute_df &lt;- merge(attribute_df, walktrap_df)
-
-unique_pids &lt;- datasets_w_nodeID[, c(&quot;pid&quot;, &quot;node_id&quot;)]
-unique_pids &lt;- unique_pids[-which(duplicated(unique_pids$pid)),]
-unique_pids &lt;- unique_pids[unique_pids$pid %in% attribute_df$pid,]
-attribute_df &lt;- merge(attribute_df, unique_pids)
-
 names(attribute_df)[2] &lt;- &quot;degree&quot;
 head(attribute_df, 20)</code></pre>
-<pre><code>##       pid degree eigen_clust walk_clust node_id
-## 1  100004     97         202        344    NCEI
-## 2  100005     97         202        344    NCEI
-## 3  100023     97         202        344    NCEI
-## 4  100025     97         202        344    NCEI
-## 5  100031     97         202        344    NCEI
-## 6  100060     97         202        344    NCEI
-## 7  100077     97         202        344    NCEI
-## 8  100096     97         202        344    NCEI
-## 9  100101     97         202        344    NCEI
-## 10 100107     97         202        344    NCEI
-## 11 100113     97         202        344    NCEI
-## 12 100114     97         202        344    NCEI
-## 13 100115     97         202        344    NCEI
-## 14  10013     55          65        273    NCEI
-## 15 100142     97         202        344    NCEI
-## 16 100172     97         202        344    NCEI
-## 17 100188    259           1         52  mnUNM1
-## 18 100203     97         202        344    NCEI
-## 19  10021     55          65        273    NCEI
-## 20 100237     97         202        344    NCEI</code></pre>
+<pre><code>##       pid degree eigen_clust walk_clust
+## 1  100004     97         202        344
+## 2  100005     97         202        344
+## 3  100023     97         202        344
+## 4  100025     97         202        344
+## 5  100031     97         202        344
+## 6  100060     97         202        344
+## 7  100077     97         202        344
+## 8  100096     97         202        344
+## 9  100101     97         202        344
+## 10 100107     97         202        344
+## 11 100113     97         202        344
+## 12 100114     97         202        344
+## 13 100115     97         202        344
+## 14  10013     55          65        273
+## 15 100142     97         202        344
+## 16 100172     97         202        344
+## 17 100188    259           1         52
+## 18 100203     97         202        344
+## 19  10021     55          65        273
+## 20 100237     97         202        344</code></pre>
 <pre class="r"><code>save(attribute_df, file = &quot;code/whole_DataONE_graph/dataset_attributes.Rdata&quot;)
 write.csv(attribute_df, file = &quot;code/whole_DataONE_graph/dataset_attributes.csv&quot;, row.names = FALSE)
 
-rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df, unique_pids)</code></pre>
+rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)</code></pre>
+</div>
+<div id="add-archive-id-to-attributes-list" class="section level2">
+<h2>Add archive ID to attributes list</h2>
+<pre class="r"><code>unique_pids &lt;- datasets_w_nodeID[, c(&quot;pid&quot;, &quot;node_id&quot;)]
+unique_pids &lt;- unique_pids[-which(duplicated(unique_pids$pid)),]
+unique_pids &lt;- unique_pids[unique_pids$pid %in% attribute_df$pid,]
+attribute_df &lt;- merge(attribute_df, unique_pids)
+names(attribute_df)[1] &lt;- &quot;ID&quot;
+
+write.csv(attribute_df, file = &quot;code/whole_DataONE_graph/dataset_attributes_w_archiveID.csv&quot;, row.names = FALSE)
+
+rm(unique_pids)</code></pre>
 </div>
 <div id="session-info" class="section level2">
 <h2>Session info</h2>
@@ -846,7 +857,7 @@ rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df, unique_pids)</co
 ##  collate  en_US.UTF-8                 
 ##  ctype    en_US.UTF-8                 
 ##  tz       America/Los_Angeles         
-##  date     2019-07-30                  
+##  date     2019-08-03                  
 ## 
 ## ─ Packages ──────────────────────────────────────────────────────────────
 ##  package     * version date       lib source        
