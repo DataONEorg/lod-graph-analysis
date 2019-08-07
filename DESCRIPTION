@@ -1,0 +1,21 @@
+Type: Compendium
+Package: lod-graph-analysis
+Title: Linked Open Data graph analysis 2019 summer intern project
+Version: 0.0.1
+Authors@R: 
+    person(given = "Audrey",
+           family = "McCombs",
+           role = c("aut", "cre"),
+           email = "amccombs@iastate.edu",
+           comment = c(ORCID = "https://orcid.org/0000-0002-6786-7819"))
+Description: Linked Open Data graph analysis 2019 summer intern project
+License: Apache 2.0 + file LICENSE
+Depends: 
+    devtools,
+    igraph,
+    knitr,
+    lubridate,
+    plyr,
+    rmarkdown
+Encoding: UTF-8
+LazyData: true
