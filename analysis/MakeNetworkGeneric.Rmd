@@ -12,7 +12,7 @@ library(igraph)
 
 ## Overview
 
-This document presents code to build a network of datasets from a DataONE archive.  It takes as input a .csv file with two columns: a list of users in one column, and a list of datasets in the other.  Each row in the .csv spreadsheet consists of a unique person-dataset pair, where the "person" could be a contributor, a user who downloads a dataset, or a session ID.
+This document presents code to build a network of datasets from a DataONE archive.  It takes as input a .csv file with two columns: a list of users in one column, and a list of datasets in the other.  Each row in the .csv spreadsheet consists of a unique person-dataset pair, where the "person" could be a creator, a user who downloads a dataset, or a session ID.
 
 This script works on the .csv table to build a network describing the relationships among datasets in the archive, then calculates statistics of interest for that network.
 
@@ -34,10 +34,10 @@ This document produces two outputs:
 
 The code in this document assumes the following file structure:
 
-1. A root directory with this R markdown file and two sub-folders:
+1. A root directory with two sub-folders:
   + sub-folder 1: a directory called "data" containing the data .csv file(s).  The code in this document assumes the name of the data .csv file is "datasets.csv", with 2 columns: "user_id" and "pid".  See "Import the data file" below for more details.
-  + sub-folder 2: a directory called "code" with sub-directories for each network.
-    + The analyst (you) creates and names each sub-directory in "code" that will hold the output files for each network you build.  If you modify this document to customize it for your network, the modified code can also live in the network-specific sub-folder.  I've used "ADC_datasets_nodes" for the folder that contains the network of datasets for the Arctic Data Center.  The analyst-specified directory is called as "path_name" in the code below.  Go through and global replace "path_name" with the name of your folder before you run the code in this document.
+  + sub-folder 2: a directory called "analysis" with sub-directories for each network.
+    + The analyst (you) creates and names each sub-directory in "analysis" that will hold the output files for each network you build.  If you modify this document to customize it for your network, the modified code can also live in the network-specific sub-folder.  I've used "ADC_datasets_nodes" for the folder that contains the network of datasets for the Arctic Data Center.  The analyst-specified directory is called "path_name" in the code below.  Go through and global replace "path_name" with the name of your folder before you run the code in this document.
 
 ## Import the data file
 
@@ -160,7 +160,7 @@ head(edge_list, 20)
 
 stopifnot(nrow(edge_list) == calc_num_edges)  #check that the number of rows in the edge list is the same as what was calculated in chunk "check final size of edge list" above
 
-save(edge_list, file = "code/path_name/edge_list.Rdata")
+save(edge_list, file = "analysis/path_name/edge_list.Rdata")
 ```
 
 ## Make the network
@@ -178,7 +178,7 @@ datasets_graph <- simplify(datasets_graph)
 # E(datasets_graph)$weight <- 1
 # simplify(datasets_graph, edge.attr.comb=list(weight="sum"))
 
-save(datasets_graph, file = "code/path_name/datasets_graph.Rdata")
+save(datasets_graph, file = "analysis/path_name/datasets_graph.Rdata")
 ```
 
 ## Make edge list for visualization in Gephi
@@ -186,7 +186,7 @@ save(datasets_graph, file = "code/path_name/datasets_graph.Rdata")
 Make an edge list for importing into Gephi network visualization software.  Gephi requires the 2 columns in the .csv file to be called "Source" and "Target".
 
 ```{r gephi edge list}
-write.table(get.edgelist(datasets_graph), file = "code/path_name/gephi_edge_list.csv", row.names = FALSE, col.names = c("Source", "Target"), sep=",")
+write.table(get.edgelist(datasets_graph), file = "analysis/path_name/gephi_edge_list.csv", row.names = FALSE, col.names = c("Source", "Target"), sep=",")
 ```
 
 ## Calculate and store network statistics
@@ -224,9 +224,9 @@ stopifnot(summary(degree(datasets_graph))[[1]] == 1)  #min should be 1
 knitr::kable(stats_df, row.names = TRUE, col.names = c("Statistic", "Value"), label = "Network statistics")
 
 save(stats_df,
-     file = "code/path_name/network_statistics.Rdata")
+     file = "analysis/path_name/network_statistics.Rdata")
 write.csv(stats_df,
-     file = "code/path_name/network_statistics.csv", row.names = FALSE)
+     file = "analysis/path_name/network_statistics.csv", row.names = FALSE)
 ```
 
 ## Calculate and store node-level statistics
@@ -258,8 +258,8 @@ attribute_df <- merge(attribute_df, walktrap_df)
 names(attribute_df)[2] <- "degree"
 head(attribute_df, 20)
 
-save(attribute_df, file = "code/path_name/dataset_attributes.Rdata")
-write.csv(attribute_df, file = "code/path_name/dataset_attributes.csv", row.names = FALSE)
+save(attribute_df, file = "analysis/path_name/dataset_attributes.Rdata")
+write.csv(attribute_df, file = "analysis/path_name/dataset_attributes.csv", row.names = FALSE)
 
 rm(degree_df, eigen_clus, eigen_df, walktrap_clus, walktrap_df)
 
